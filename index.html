@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>HandSign | Gesture Presentation Controller</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- PDF.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+    <!-- MediaPipe Hands -->
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"
+        crossorigin="anonymous"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"
+        crossorigin="anonymous"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"
+        crossorigin="anonymous"></script>
+
+    <!-- PPTX rendering -->
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pptxjs@1.21.1/dist/pptxjs.min.js"></script>
+</head>
+
+<body>
+
+    <header class="topbar">
+        <div class="brand">
+            <div class="brand-icon">✋</div>
+
+            <div>
+                <h1>HandSign</h1>
+                <p>Gesture Presentation Controller</p>
+            </div>
+        </div>
+
+        <div class="header-status">
+            <span class="status-dot"></span>
+            <span id="appStatus">System Ready</span>
+        </div>
+    </header>
+
+    <main class="app-container">
+
+        <section class="welcome-section">
+            <div>
+                <span class="eyebrow">SMART PRESENTATION SYSTEM</span>
+
+                <h2>Control your presentation<br>
+                    <span>with your hands.</span>
+                </h2>
+
+                <p>
+                    Upload a PDF or PowerPoint presentation and navigate
+                    through your slides using simple hand gestures.
+                </p>
+            </div>
+
+            <div class="welcome-emoji" aria-hidden="true">
+                🖐️
+            </div>
+        </section>
+
+        <section class="workspace">
+
+            <!-- Left control panel -->
+            <aside class="control-panel">
+
+                <div class="panel-card upload-card">
+                    <div class="card-heading">
+                        <span class="card-icon">📂</span>
+
+                        <div>
+                            <h3>Upload Presentation</h3>
+                            <p>Select your presentation file.</p>
+                        </div>
+                    </div>
+
+                    <label for="fileInput" class="upload-zone">
+                        <span class="upload-symbol">⬆</span>
+
+                        <strong>Choose a file</strong>
+
+                        <span>PDF, PPT, or PPTX</span>
+
+                        <input
+                            type="file"
+                            id="fileInput"
+                            accept=".pdf,.ppt,.pptx"
+                        >
+                    </label>
+
+                    <div id="fileInfo" class="file-info">
+                        <span>📄</span>
+                        <span id="fileName">No file selected</span>
+                    </div>
+
+                    <p class="small-note">
+                        Tip: For the most reliable rendering, export your
+                        PowerPoint presentation to PDF before uploading.
+                    </p>
+                </div>
+
+                <div class="panel-card camera-card">
+                    <div class="card-heading">
+                        <span class="card-icon">📷</span>
+
+                        <div>
+                            <h3>Gesture Camera</h3>
+                            <p>Use your webcam to control slides.</p>
+                        </div>
+                    </div>
+
+                    <div class="camera-preview">
+                        <video
+                            id="inputVideo"
+                            autoplay
+                            muted
+                            playsinline
+                        ></video>
+
+                        <canvas id="cameraCanvas"></canvas>
+
+                        <div id="cameraPlaceholder" class="camera-placeholder">
+                            <span>📸</span>
+                            <p>Camera is not running</p>
+                        </div>
+
+                        <div class="camera-live-label" id="cameraLiveLabel">
+                            CAMERA OFF
+                        </div>
+                    </div>
+
+                    <button id="cameraButton" class="primary-button">
+                        ▶ Start Camera
+                    </button>
+
+                    <p id="cameraStatus" class="status-message">
+                        Camera is waiting to start.
+                    </p>
+                </div>
+
+                <div class="panel-card gesture-card">
+                    <div class="card-heading">
+                        <span class="card-icon">🖐️</span>
+
+                        <div>
+                            <h3>Gesture Guide</h3>
+                            <p>Keep your hand clearly visible.</p>
+                        </div>
+                    </div>
+
+                    <div class="gesture-list">
+                        <div class="gesture-item">
+                            <div class="gesture-emoji">🖐️</div>
+                            <div>
+                                <strong>Open Palm</strong>
+                                <span>Enter fullscreen</span>
+                            </div>
+                        </div>
+
+                        <div class="gesture-item">
+                            <div class="gesture-emoji">✊</div>
+                            <div>
+                                <strong>Closed Fist</strong>
+                                <span>Exit fullscreen</span>
+                            </div>
+                        </div>
+
+                        <div class="gesture-item">
+                            <div class="gesture-emoji">👉</div>
+                            <div>
+                                <strong>Point Right</strong>
+                                <span>Next page or slide</span>
+                            </div>
+                        </div>
+
+                        <div class="gesture-item">
+                            <div class="gesture-emoji">👈</div>
+                            <div>
+                                <strong>Point Left</strong>
+                                <span>Previous page or slide</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="detected-gesture">
+                        <span>Detected gesture</span>
+                        <strong id="detectedGesture">None</strong>
+                    </div>
+                </div>
+
+            </aside>
+
+            <!-- Presentation panel -->
+            <section class="presentation-panel" id="presentationPanel">
+
+                <div class="presentation-toolbar" id="presentationToolbar">
+                    <div class="presentation-title">
+                        <span class="document-icon">📑</span>
+
+                        <div>
+                            <h3 id="presentationTitle">Presentation Viewer</h3>
+                            <p id="presentationSubtitle">Upload a file to begin</p>
+                        </div>
+                    </div>
+
+                    <div class="toolbar-actions">
+                        <button
+                            id="previousButton"
+                            class="icon-button"
+                            title="Previous page"
+                            aria-label="Previous page"
+                        >◀</button>
+
+                        <span class="page-counter" id="pageCounter">
+                            0 / 0
+                        </span>
+
+                        <button
+                            id="nextButton"
+                            class="icon-button"
+                            title="Next page"
+                            aria-label="Next page"
+                        >▶</button>
+
+                        <button
+                            id="fullscreenButton"
+                            class="fullscreen-button"
+                            title="Toggle fullscreen"
+                        >⛶ Fullscreen</button>
+                    </div>
+                </div>
+
+                <div class="presentation-stage" id="presentationStage">
+
+                    <div id="welcomeViewer" class="welcome-viewer">
+                        <div class="viewer-illustration">📽️</div>
+
+                        <h2>Your presentation starts here</h2>
+
+                        <p>
+                            Upload a PDF or supported PowerPoint file
+                            to display your slides.
+                        </p>
+
+                        <label for="fileInput" class="viewer-upload-button">
+                            Choose Presentation
+                        </label>
+
+                        <div class="viewer-shortcuts">
+                            <span>← Previous</span>
+                            <span>→ Next</span>
+                            <span>F Fullscreen</span>
+                        </div>
+                    </div>
+
+                    <div id="pdfContainer" class="pdf-container hidden">
+                        <canvas id="pdfCanvas"></canvas>
+                    </div>
+
+                    <div id="pptContainer" class="ppt-container hidden"></div>
+
+                    <div id="loadingOverlay" class="loading-overlay hidden">
+                        <div class="spinner"></div>
+                        <p id="loadingText">Loading presentation...</p>
+                    </div>
+
+                    <div id="errorMessage" class="error-message hidden"></div>
+
+                </div>
+
+                <div class="presentation-footer" id="presentationFooter">
+                    <span id="viewerMessage">
+                        Ready to present
+                    </span>
+
+                    <div class="footer-controls">
+                        <button id="footerPrevious" class="text-button">
+                            ← Previous
+                        </button>
+
+                        <button id="footerNext" class="text-button">
+                            Next →
+                        </button>
+                    </div>
+                </div>
+
+            </section>
+
+        </section>
+
+        <section class="bottom-info">
+            <div class="info-card">
+                <span>⚡</span>
+                <div>
+                    <strong>Fast Navigation</strong>
+                    <p>Move through slides using hand gestures.</p>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <span>🖥️</span>
+                <div>
+                    <strong>Presentation Mode</strong>
+                    <p>Expand your presentation to fullscreen.</p>
+                </div>
+            </div>
+
+            <div class="info-card">
+                <span>🔒</span>
+                <div>
+                    <strong>Browser Permissions</strong>
+                    <p>Allow camera access when prompted.</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="page-footer">
+        <p>HandSign © 2026 · Smart Hand Gesture Presentation Controller</p>
+    </footer>
+
+    <script src="script.js"></script>
+
+</body>
+</html>
